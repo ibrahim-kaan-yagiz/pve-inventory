@@ -27,6 +27,11 @@ Markdown-Tabelle in `homelab.md` schreibt — mehr nicht.
 - [ ] Custom-Config-Zeilen wie `lxc.mount.entry` hervorheben
 - [ ] Fehlende Felder wie `onboot` in der Ausgabe sichtbar machen
 
+## Codebasis
+
+- [ ] Kommentare und Docstrings von Deutsch auf Englisch umstellen, sobald das
+      Projekt Mitwirkende bekommt
+
 ## Später, frühestens nach v1
 
 - [ ] Bezahlte Pro-Version, frühestens nach dem ersten Release
