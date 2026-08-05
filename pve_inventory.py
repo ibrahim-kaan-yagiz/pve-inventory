@@ -7,6 +7,7 @@ Muss direkt auf dem PVE-Host laufen. Nutzt nur die Standardbibliothek.
 import datetime
 import subprocess
 import sys
+from urllib.parse import unquote
 
 PCT = "/usr/sbin/pct"
 
@@ -22,8 +23,9 @@ COLUMNS = (
     "Status",
     "CPU/RAM",
     "Storage",
-    "Netzwerk",
+    "Network",
     "Autostart",
+    "Purpose",
 )
 
 # Felder, deren Wert ein komma-separierter Key-Value-String ist und die
@@ -44,7 +46,7 @@ def run_pct(args):
     )
     if result.returncode != 0:
         raise RuntimeError(
-            "pct %s fehlgeschlagen (rc=%d): %s"
+            "pct %s failed (rc=%d): %s"
             % (" ".join(args), result.returncode, result.stderr.strip())
         )
     return result.stdout
@@ -142,9 +144,18 @@ def format_cpu_ram(config):
     if not cores and not memory:
         return MISSING
     return "%s / %s" % (
-        "%s Cores" % cores if cores else MISSING,
+        format_cores(cores) if cores else MISSING,
         "%s MB" % memory if memory else MISSING,
     )
+
+
+def format_cores(cores):
+    """'1 Core' bzw. '2 Cores' - Singular nur bei exakt einem Kern."""
+    try:
+        singular = int(cores) == 1
+    except (TypeError, ValueError):
+        singular = False
+    return "%s %s" % (cores, "Core" if singular else "Cores")
 
 
 def format_storage(config):
@@ -172,12 +183,25 @@ def format_network(config):
 
 
 def format_autostart(config):
-    """'ja' bei onboot=1, mit Startup-Order falls gesetzt, sonst 'nein'."""
+    """'yes' bei onboot=1, mit Startup-Order falls gesetzt, sonst 'no'."""
     if config.get("onboot", "0").strip() != "1":
-        return "nein"
+        return "no"
     startup = parse_kv_string(config.get("startup", ""))
     order = startup.get("order")
-    return "ja (Order %s)" % order if order else "ja"
+    return "yes (order %s)" % order if order else "yes"
+
+
+def format_purpose(config):
+    """Beschreibungstext des Containers, einzeilig fuer die Tabelle.
+
+    pct speichert die Description URL-kodiert (Zeilenumbruch als %0A),
+    daher erst dekodieren und dann auf <br> umstellen.
+    """
+    description = unquote(config.get("description", "")).strip()
+    if not description:
+        return MISSING
+    lines = [line.strip() for line in description.splitlines() if line.strip()]
+    return "<br>".join(lines) if lines else MISSING
 
 
 def escape_cell(value):
@@ -196,6 +220,7 @@ def build_row(container):
         format_storage(config),
         format_network(config),
         format_autostart(config),
+        format_purpose(config),
     ]
 
 
@@ -205,9 +230,9 @@ def render_markdown(containers, generated_at=None):
         generated_at = datetime.datetime.now()
 
     lines = [
-        "# Homelab – LXC Container",
+        "# Homelab – LXC Containers",
         "",
-        "Erzeugt am %s" % generated_at.strftime("%d.%m.%Y %H:%M:%S"),
+        "Generated %s" % generated_at.strftime("%Y-%m-%d %H:%M:%S"),
         "",
         "| %s |" % " | ".join(COLUMNS),
         "|%s|" % "|".join(["---"] * len(COLUMNS)),
@@ -215,7 +240,7 @@ def render_markdown(containers, generated_at=None):
     for container in containers:
         lines.append("| %s |" % " | ".join(escape_cell(c) for c in build_row(container)))
     if not containers:
-        lines.extend(["", "Keine Container gefunden."])
+        lines.extend(["", "No containers found."])
     lines.append("")
     return "\n".join(lines)
 
@@ -231,16 +256,16 @@ def main():
     try:
         containers = collect()
     except (RuntimeError, OSError) as error:
-        print("Fehler: %s" % error, file=sys.stderr)
+        print("Error: %s" % error, file=sys.stderr)
         return 1
 
     try:
         path = write_markdown(containers)
     except OSError as error:
-        print("Fehler beim Schreiben von %s: %s" % (OUTPUT_FILE, error), file=sys.stderr)
+        print("Error writing %s: %s" % (OUTPUT_FILE, error), file=sys.stderr)
         return 1
 
-    print("%d Container nach %s geschrieben." % (len(containers), path))
+    print("Wrote %d container(s) to %s" % (len(containers), path))
     return 0
 
 
