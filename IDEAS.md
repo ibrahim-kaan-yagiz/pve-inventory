@@ -1,38 +1,33 @@
-# Ideen
+# Ideas
 
-Parkplatz für alles, was bewusst **nicht** in v1 gehört.
+Parking lot for everything deliberately **out of scope** for v1.
 
-v1 ist ein CLI-Tool, das per `pct` die LXC-Container ausliest und eine
-Markdown-Tabelle in `homelab.md` schreibt — mehr nicht.
+v1 is a CLI tool that reads the LXC containers via `pct` and writes a markdown
+table to `homelab.md` — nothing more.
 
-**Regel: jede neue Idee kommt hierher, nicht in den Code.**
+**Rule: every new idea goes here, not into the code.**
 
-## Oberfläche und Betrieb
+## Interface and operation
 
-- [ ] Web-UI statt CLI
-- [ ] Historie und Änderungs-Diffs
-- [ ] Proxmox-API mit Token statt `pct`, für Remote-Betrieb
+- [ ] Web UI instead of CLI
+- [ ] History and change diffs
+- [ ] Proxmox API with a token instead of `pct`, for remote operation
 
-## Datenerfassung
+## Data collection
 
-- [ ] Mehrere Netzwerk-Interfaces (`net1`, `net2`, …) statt nur `net0`
-- [ ] `unprivileged` auswerten für einen Security-Check
-- [ ] Versionsstände installierter Dienste erfassen
-- [ ] Tailscale-Routen dokumentieren
-- [ ] QEMU-VMs zusätzlich zu LXC (`qm list` / `qm config`)
-- [ ] Bei `ip=dhcp` die tatsächlich vergebene IP ermitteln
+- [ ] Multiple network interfaces (`net1`, `net2`, …) instead of only `net0`
+- [ ] Evaluate `unprivileged` for a security check
+- [ ] Record versions of installed services
+- [ ] Document Tailscale routes
+- [ ] QEMU VMs in addition to LXC (`qm list` / `qm config`)
+- [ ] Determine the actually assigned IP when `ip=dhcp`
 
-## Ausgabe
+## Output
 
-- [ ] Custom-Config-Zeilen wie `lxc.mount.entry` hervorheben
-- [ ] Fehlende Felder wie `onboot` in der Ausgabe sichtbar machen
+- [ ] Highlight custom config lines such as `lxc.mount.entry`
+- [ ] Make missing fields such as `onboot` visible in the output
 
-## Codebasis
+## Later, at the earliest after v1
 
-- [ ] Kommentare und Docstrings von Deutsch auf Englisch umstellen, sobald das
-      Projekt Mitwirkende bekommt
-
-## Später, frühestens nach v1
-
-- [ ] Bezahlte Pro-Version, frühestens nach dem ersten Release
-- [ ] E-Book bzw. Guide zum Thema Self-Hosting, sinnvoll erst mit Nutzerbasis
+- [ ] Paid pro version, at the earliest after the first release
+- [ ] E-book or guide on self-hosting, worthwhile only with a user base

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Liest die LXC-Container eines Proxmox-Hosts via pct aus.
+"""Read the LXC containers of a Proxmox host via pct.
 
-Muss direkt auf dem PVE-Host laufen. Nutzt nur die Standardbibliothek.
+Must run directly on the PVE host. Standard library only.
 """
 
 import datetime
@@ -11,10 +11,10 @@ from urllib.parse import unquote
 
 PCT = "/usr/sbin/pct"
 
-# Zieldatei der Markdown-Tabelle, relativ zum aktuellen Verzeichnis.
+# Target file for the markdown table, relative to the current directory.
 OUTPUT_FILE = "homelab.md"
 
-# Platzhalter fuer Felder, die der Container nicht gesetzt hat.
+# Placeholder for fields the container does not set.
 MISSING = "–"
 
 COLUMNS = (
@@ -28,16 +28,16 @@ COLUMNS = (
     "Purpose",
 )
 
-# Felder, deren Wert ein komma-separierter Key-Value-String ist und die
-# zusaetzlich in ein Sub-Dict aufgeschluesselt werden.
+# Fields whose value is a comma-separated key-value string and that are
+# additionally broken out into a sub-dict.
 STRUCTURED_PREFIXES = ("net", "rootfs", "mp", "unused")
 
-# Felder, bei denen das erste Element positional ist (Volume-Angabe ohne "=").
+# Fields whose first element is positional (a volume without "=").
 VOLUME_FIELDS = ("rootfs", "mp", "unused")
 
 
 def run_pct(args):
-    """Ruft pct mit den uebergebenen Argumenten auf und liefert stdout."""
+    """Run pct with the given arguments and return stdout."""
     result = subprocess.run(
         [PCT] + args,
         stdout=subprocess.PIPE,
@@ -53,11 +53,11 @@ def run_pct(args):
 
 
 def parse_pct_list(output):
-    """Parst die Tabelle von 'pct list' in eine Liste von Dicts.
+    """Parse the table printed by 'pct list' into a list of dicts.
 
-    Die Spaltenbreiten werden aus der Kopfzeile abgeleitet, weil die
-    Lock-Spalte haeufig leer ist und ein simples split() sonst die
-    Spalten verschieben wuerde.
+    Column boundaries are derived from the header line because the Lock
+    column is usually empty, which would shift the columns if the rows
+    were split on whitespace.
     """
     lines = [line for line in output.splitlines() if line.strip()]
     if not lines:
@@ -81,10 +81,10 @@ def parse_pct_list(output):
 
 
 def parse_kv_string(value, with_volume=False):
-    """Schluesselt einen komma-separierten Key-Value-String auf.
+    """Break a comma-separated key-value string into a dict.
 
-    with_volume=True behandelt ein fuehrendes Element ohne "=" als
-    Volume-Angabe (z.B. 'local-lvm:vm-100-disk-0,size=8G').
+    with_volume=True treats a leading element without "=" as a volume
+    reference (e.g. 'local-lvm:vm-100-disk-0,size=8G').
     """
     parsed = {}
     for position, part in enumerate(value.split(",")):
@@ -102,10 +102,10 @@ def parse_kv_string(value, with_volume=False):
 
 
 def parse_pct_config(output):
-    """Parst 'pct config <id>' in ein Dict.
+    """Parse 'pct config <id>' into a dict.
 
-    Strukturierte Felder (net0, rootfs, mp0, ...) landen zusaetzlich
-    als aufgeschluesseltes Sub-Dict unter '<feld>_parsed'.
+    Structured fields (net0, rootfs, mp0, ...) are additionally stored as
+    a broken-out sub-dict under '<field>_parsed'.
     """
     config = {}
     for line in output.splitlines():
@@ -125,7 +125,7 @@ def parse_pct_config(output):
 
 
 def collect():
-    """Sammelt Status und Konfiguration aller Container."""
+    """Collect status and configuration of all containers."""
     containers = parse_pct_list(run_pct(["list"]))
     for container in containers:
         vmid = container["vmid"]
@@ -138,7 +138,7 @@ def collect():
 
 
 def format_cpu_ram(config):
-    """'2 Cores / 2048 MB', fehlende Haelften als Platzhalter."""
+    """'2 Cores / 2048 MB', with a placeholder for a missing half."""
     cores = config.get("cores")
     memory = config.get("memory")
     if not cores and not memory:
@@ -150,7 +150,7 @@ def format_cpu_ram(config):
 
 
 def format_cores(cores):
-    """'1 Core' bzw. '2 Cores' - Singular nur bei exakt einem Kern."""
+    """'1 Core' or '2 Cores' - singular only for exactly one core."""
     try:
         singular = int(cores) == 1
     except (TypeError, ValueError):
@@ -159,10 +159,10 @@ def format_cores(cores):
 
 
 def format_storage(config):
-    """'local-lvm, 20G' aus rootfs_parsed."""
+    """'local-lvm, 20G' from rootfs_parsed."""
     rootfs = config.get("rootfs_parsed") or {}
     volume = rootfs.get("volume", "")
-    # Backend ist der Teil vor dem Doppelpunkt: 'local-lvm:vm-100-disk-0'.
+    # The backend is the part before the colon: 'local-lvm:vm-100-disk-0'.
     backend = volume.split(":")[0] if volume else ""
     size = rootfs.get("size", "")
     if not backend and not size:
@@ -171,7 +171,7 @@ def format_storage(config):
 
 
 def format_network(config):
-    """'vmbr0, 192.168.178.72/24' bzw. 'vmbr0, DHCP' aus net0_parsed."""
+    """'vmbr0, 192.168.178.72/24' or 'vmbr0, DHCP' from net0_parsed."""
     net = config.get("net0_parsed") or {}
     bridge = net.get("bridge", "")
     ip = net.get("ip", "")
@@ -183,7 +183,7 @@ def format_network(config):
 
 
 def format_autostart(config):
-    """'yes' bei onboot=1, mit Startup-Order falls gesetzt, sonst 'no'."""
+    """'yes' for onboot=1, with the startup order if set, otherwise 'no'."""
     if config.get("onboot", "0").strip() != "1":
         return "no"
     startup = parse_kv_string(config.get("startup", ""))
@@ -192,10 +192,10 @@ def format_autostart(config):
 
 
 def format_purpose(config):
-    """Beschreibungstext des Containers, einzeilig fuer die Tabelle.
+    """The container description, collapsed to a single table cell.
 
-    pct speichert die Description URL-kodiert (Zeilenumbruch als %0A),
-    daher erst dekodieren und dann auf <br> umstellen.
+    pct stores the description URL-encoded (a newline as %0A), so decode
+    it first and then turn the line breaks into <br>.
     """
     description = unquote(config.get("description", "")).strip()
     if not description:
@@ -205,12 +205,12 @@ def format_purpose(config):
 
 
 def escape_cell(value):
-    """Schuetzt Pipes, damit sie die Tabelle nicht zerreissen."""
+    """Escape pipes so they do not break up the table."""
     return str(value).replace("|", "\\|")
 
 
 def build_row(container):
-    """Baut die Zellen einer Tabellenzeile fuer einen Container."""
+    """Build the cells of one table row for a container."""
     config = container.get("config") or {}
     return [
         container.get("vmid") or MISSING,
@@ -225,7 +225,7 @@ def build_row(container):
 
 
 def render_markdown(containers, generated_at=None):
-    """Erzeugt das komplette Markdown-Dokument als String."""
+    """Render the complete markdown document as a string."""
     if generated_at is None:
         generated_at = datetime.datetime.now()
 
@@ -246,7 +246,7 @@ def render_markdown(containers, generated_at=None):
 
 
 def write_markdown(containers, path=OUTPUT_FILE):
-    """Schreibt die Markdown-Tabelle nach path."""
+    """Write the markdown table to path."""
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(render_markdown(containers))
     return path
