@@ -8,13 +8,16 @@ table to `homelab.md`.
 ```markdown
 # Homelab – LXC Containers
 
-Generated 2026-08-05 14:30:00
+Generated 2026-08-05 23:24:17
 
 | CTID | Hostname | Status | CPU/RAM | Storage | Network | Autostart | Purpose |
 |---|---|---|---|---|---|---|---|
-| 100 | proxy | running | 2 Cores / 1024 MB | local-lvm, 8G | vmbr0, 192.168.1.10/24 | yes (order 1) | Reverse proxy |
-| 101 | db | running | 4 Cores / 4096 MB | local-zfs, 32G | vmbr0, DHCP | yes | Postgres |
-| 102 | scratch | stopped | 1 Core / 512 MB | local-lvm, 4G | – | no | – |
+| 100 | minecraft-server | running | 2 Cores / 2048 MB | local-lvm, 20G | vmbr0, 192.168.178.72/24 | yes (order 3) | Minecraft server for friends |
+| 101 | discord-bot | running | 1 Core / 1024 MB | local-lvm, 8G | vmbr0, DHCP | yes (order 2) | Discord bot |
+| 102 | tailscale | running | 1 Core / 1024 MB | local-lvm, 6G | vmbr0, DHCP | yes (order 1) | Tailscale subnet router for 192.168.178.0/24 |
+| 103 | uptime-kuma | running | 1 Core / 512 MB | local-lvm, 8G | vmbr0, DHCP | no | Uptime Kuma monitoring |
+| 104 | nginx-proxy-manager | running | 1 Core / 1024 MB | local-lvm, 8G | vmbr0, 192.168.178.80/24 | no | Nginx Proxy Manager reverse proxy |
+| 105 | n8n-server | running | 2 Cores / 2048 MB | local-lvm, 10G | vmbr0, DHCP | no | n8n automation workflows |
 ```
 
 Missing fields are rendered as `–`, so containers without a network interface,
