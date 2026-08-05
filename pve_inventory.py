@@ -5,11 +5,38 @@ Must run directly on the PVE host. Standard library only.
 """
 
 import datetime
+import functools
+import os
+import shutil
 import subprocess
 import sys
 from urllib.parse import unquote
 
-PCT = "/usr/sbin/pct"
+# Usual location on a PVE host; PATH is searched as a fallback.
+PCT_PATH = "/usr/sbin/pct"
+
+# Upper bound per pct call so a hung host does not block the run forever.
+PCT_TIMEOUT = 60
+
+ROOT_HINT = "pct requires root privileges - run this script as root (e.g. via sudo)."
+
+NOT_A_PVE_HOST = (
+    "pct not found (looked at %s and on PATH). This script has to run "
+    "directly on a Proxmox VE host." % PCT_PATH
+)
+
+# stderr fragments that indicate pct refused the access rather than failing
+# for a container-specific reason.
+PERMISSION_MARKERS = (
+    "permission denied",
+    "insufficient permission",
+    "no permission",
+    "only root",
+    "must be root",
+    "need to be root",
+    "not authorized",
+    "operation not permitted",
+)
 
 # Target file for the markdown table, relative to the current directory.
 OUTPUT_FILE = "homelab.md"
@@ -36,19 +63,64 @@ STRUCTURED_PREFIXES = ("net", "rootfs", "mp", "unused")
 VOLUME_FIELDS = ("rootfs", "mp", "unused")
 
 
+class PctError(RuntimeError):
+    """Raised when pct cannot be run or reports a failure."""
+
+
+def looks_like_permission_error(text):
+    """True if the pct output points at missing privileges."""
+    lowered = (text or "").lower()
+    return any(marker in lowered for marker in PERMISSION_MARKERS)
+
+
+@functools.lru_cache(maxsize=1)
+def resolve_pct():
+    """Return the path to the pct executable.
+
+    Raises PctError with an explanatory message when pct is missing (not
+    a PVE host) or cannot be executed by the current user (not root).
+    """
+    for candidate in (PCT_PATH, shutil.which("pct")):
+        if candidate and os.path.isfile(candidate):
+            if os.access(candidate, os.X_OK):
+                return candidate
+            raise PctError(
+                "%s exists but is not executable as uid %d. %s"
+                % (candidate, os.geteuid(), ROOT_HINT)
+            )
+    raise PctError(NOT_A_PVE_HOST)
+
+
 def run_pct(args):
     """Run pct with the given arguments and return stdout."""
-    result = subprocess.run(
-        [PCT] + args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(
-            "pct %s failed (rc=%d): %s"
-            % (" ".join(args), result.returncode, result.stderr.strip())
+    command = [resolve_pct()] + args
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding="utf-8",
+            errors="replace",
+            timeout=PCT_TIMEOUT,
         )
+    except FileNotFoundError:
+        # pct disappeared between the lookup and the call.
+        raise PctError(NOT_A_PVE_HOST)
+    except PermissionError:
+        raise PctError("Cannot execute %s. %s" % (command[0], ROOT_HINT))
+    except subprocess.TimeoutExpired:
+        raise PctError(
+            "pct %s timed out after %d seconds." % (" ".join(args), PCT_TIMEOUT)
+        )
+
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip()
+        message = "pct %s failed (rc=%d)" % (" ".join(args), result.returncode)
+        if stderr:
+            message += ": %s" % stderr
+        if looks_like_permission_error(stderr) or (not stderr and os.geteuid() != 0):
+            message += "\n%s" % ROOT_HINT
+        raise PctError(message)
     return result.stdout
 
 
@@ -58,6 +130,9 @@ def parse_pct_list(output):
     Column boundaries are derived from the header line because the Lock
     column is usually empty, which would shift the columns if the rows
     were split on whitespace.
+
+    An empty container list is not an error: pct still prints the header,
+    so the result is simply an empty list.
     """
     lines = [line for line in output.splitlines() if line.strip()]
     if not lines:
@@ -68,6 +143,13 @@ def parse_pct_list(output):
     for name in header.split():
         start = header.index(name, columns[-1][1] if columns else 0)
         columns.append((name.lower(), start))
+
+    if not any(name == "vmid" for name, _ in columns):
+        # Without a VMID column this is not the table we expect, and
+        # silently returning nothing would look like "no containers".
+        raise PctError(
+            "Unexpected 'pct list' output, no VMID column found:\n%s" % header
+        )
 
     containers = []
     for line in lines[1:]:
@@ -205,8 +287,15 @@ def format_purpose(config):
 
 
 def escape_cell(value):
-    """Escape pipes so they do not break up the table."""
-    return str(value).replace("|", "\\|")
+    """Make a value safe for a markdown table cell.
+
+    Pipes end a cell and line breaks end a row, so both have to go: pipes
+    are escaped, line breaks become <br>. Applied to every cell, not just
+    the description, so no field can break the table layout.
+    """
+    text = str(value).replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("|", "\\|")
+    return "<br>".join(part.strip() for part in text.split("\n"))
 
 
 def build_row(container):
