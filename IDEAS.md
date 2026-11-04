@@ -12,6 +12,9 @@ table to `homelab.md` — nothing more.
 - [ ] Web UI instead of CLI
 - [ ] History and change diffs
 - [ ] Proxmox API with a token instead of `pct`, for remote operation
+- [ ] Write container descriptions back via `pct set --description`, e.g. to
+      keep reverse-proxy info such as Traefik rules in the Notes field
+      (suggested on r/Proxmox)
 
 ## Data collection
 
